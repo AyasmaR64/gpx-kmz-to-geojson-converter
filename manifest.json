@@ -1,0 +1,72 @@
+{
+  "name": "GPX to GeoJson Converter",
+  "short_name": "GPX to GeoJson",
+  "description": "PWA for converting kmz/gpx to GeoJson",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "dir": "ltr",
+  "lang": "en-US",
+  "prefer_related_applications": false,
+  "background_color": "rgb(0,22,68)",
+  "theme_color": "#000000",
+  "categories": ["GeoJson converter"],
+  "screenshots": [
+    {
+      "src": "./images/screenshot1.png",
+      "sizes": "576x1184",
+      "type": "image/png"
+    }
+  ],
+  "icons": [
+    {
+      "src": "./images/route.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./images/route.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": " GeoJson Converter",
+      "short_name": "ToGeoJson",
+      "description": "Convert to geojson",
+      "url": "./index.html?mode=ToGeoJson",
+      "icons": [
+        {
+          "src": "./route.svg",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": " GeoJson Converter",
+      "short_name": "ToGeoJson",
+      "description": "Convert to geojson",
+      "url": "./index.html?mode=ToGeoJson",
+      "icons": [
+        {
+          "src": "./route.svg",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "./index.html",
+    "method": "POST",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
