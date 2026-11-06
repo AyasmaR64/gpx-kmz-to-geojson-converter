@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline GPX / KMZ → GeoJSON</title>
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#121212" />
+
+    <!-- Local Dependency Scripts -->
+    <script src="jszip.min.js"></script>
+    <script src="togeojson.umd.js"></script>
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: #121212;
+        color: #e0e0e0;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+      }
+      .container {
+        width: 100%;
+        max-width: 500px;
+        background: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 1.4rem;
+        color: #fff;
+      }
+      p {
+        font-size: 0.9rem;
+        color: #aaa;
+        line-height: 1.4;
+      }
+      .drop-zone {
+        border: 2px dashed #444;
+        border-radius: 8px;
+        padding: 24px;
+        text-align: center;
+        background: #262626;
+        margin: 20px 0;
+        cursor: pointer;
+      }
+      input[type="file"] {
+        display: none;
+      }
+      .file-label {
+        display: block;
+        color: #00bcd4;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button {
+        width: 100%;
+        background: #00bcd4;
+        color: #000;
+        border: none;
+        padding: 14px;
+        font-size: 1rem;
+        font-weight: bold;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button:disabled {
+        background: #444;
+        color: #888;
+        cursor: not-allowed;
+      }
+      #status {
+        margin-top: 16px;
+        font-size: 0.85rem;
+        color: #ffb74d;
+        word-break: break-word;
+        min-height: 1.2em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>GPX / KMZ Converter</h2>
+      <p>PWA Offline Mode Active</p>
+
+      <div
+        class="drop-zone"
+        onclick="document.getElementById('fileInput').click()"
+      >
+        <span class="file-label" id="fileLabel"
+          >Tap to select .gpx, .kml, or .kmz</span
+        >
+        <input type="file" id="fileInput" accept=".gpx,.kml,.kmz" />
+      </div>
+
+      <button id="convertBtn" onclick="processFile()" disabled>
+        Convert &amp; Save GeoJSON
+      </button>
+      <div id="status">Loading libraries...</div>
+    </div>
+
+    <script>
+      // Register Service Worker for PWA Offline Caching
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("./sw.js")
+            .then((reg) =>
+              console.log("Service Worker registered successfully:", reg.scope),
+            )
+            .catch((err) =>
+              console.error("Service Worker registration failed:", err),
+            );
+        });
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        if (typeof JSZip !== "undefined" && typeof toGeoJSON !== "undefined") {
+          document.getElementById("status").textContent =
+            "Ready for offline conversion.";
+          document.getElementById("convertBtn").disabled = false;
+        } else {
+          document.getElementById("status").textContent =
+            "Error: Local libraries (JSZip/toGeoJSON) failed to load.";
+        }
+      });
+
+      const fileInput = document.getElementById("fileInput");
+      const fileLabel = document.getElementById("fileLabel");
+      const status = document.getElementById("status");
+      let selectedFile = null;
+
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+          selectedFile = e.target.files[0];
+          fileLabel.textContent = selectedFile.name;
+          status.textContent = `Selected: ${selectedFile.name}`;
+        }
+      });
+
+      async function processFile() {
+        if (!selectedFile) return;
+        status.textContent = "Processing file...";
+
+        try {
+          const fileName = selectedFile.name.toLowerCase();
+          let geojson = null;
+
+          if (fileName.endsWith(".gpx")) {
+            const text = await selectedFile.text();
+            const dom = new DOMParser().parseFromString(text, "text/xml");
+            geojson = toGeoJSON.gpx(dom);
+          } else if (fileName.endsWith(".kml")) {
+            const text = await selectedFile.text();
+            const dom = new DOMParser().parseFromString(text, "text/xml");
+            geojson = toGeoJSON.kml(dom);
+          } else if (fileName.endsWith(".kmz")) {
+            const zip = new JSZip();
+            const zipData = await zip.loadAsync(selectedFile);
+
+            const kmlFileName = Object.keys(zipData.files).find((name) =>
+              name.toLowerCase().endsWith(".kml"),
+            );
+            if (!kmlFileName)
+              throw new Error("No KML file found inside .kmz archive.");
+
+            const kmlText = await zipData.files[kmlFileName].async("string");
+            const dom = new DOMParser().parseFromString(kmlText, "text/xml");
+            geojson = toGeoJSON.kml(dom);
+          } else {
+            throw new Error("Unsupported format. Select .gpx, .kml, or .kmz");
+          }
+
+          downloadGeoJSON(geojson, selectedFile.name);
+          status.textContent = "Successfully extracted and downloaded!";
+        } catch (err) {
+          status.textContent = `Error: ${err.message}`;
+          console.error(err);
+        }
+      }
+
+      function downloadGeoJSON(data, originalFilename) {
+        const str = JSON.stringify(data, null, 2);
+        const blob = new Blob([str], { type: "application/geo+json" });
+        const url = URL.createObjectURL(blob);
+
+        const outName =
+          originalFilename.substring(0, originalFilename.lastIndexOf(".")) +
+          ".geojson";
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = outName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    </script>
+  </body>
+</html>
