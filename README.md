@@ -1,1 +1,1 @@
-Thanks to the original creator of this code.
+Thanks to the original creators of this code.
